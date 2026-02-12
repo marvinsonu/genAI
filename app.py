@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, session
 from functools import wraps
+from datetime import timedelta
 from controller.config import config
 from controller.database import db
 from controller.model import User, Role, UserRole
@@ -8,6 +9,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
+
+# Session configuration for "Remember Me" functionality
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 db.init_app(app)
 
 # Decorator to check if user is logged in
@@ -40,12 +48,18 @@ with app.app_context():
 
     
     db.session.commit()
-# ================= LOGIN =================
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        remember_me = request.form.get('remember', False)
+
+        # Validate input
+        if not email or not password:
+            flash("Email and password are required", "danger")
+            return redirect(url_for('login'))
 
         user = User.query.filter_by(email=email).first()
 
@@ -58,21 +72,30 @@ def login():
                 session['username'] = user.username
                 session['email'] = user.email
                 session['role_id'] = user_role.role_id
+                session.permanent = bool(remember_me)  # Make session persistent if "Remember Me" is checked
                 
-                # Redirect based on role
+                # Get role name for personalized message
+                role = Role.query.get(user_role.role_id)
+                role_name = role.name if role else "User"
+                
+                # Redirect based on role with appropriate dashboard
                 if user_role.role_id == 1:
-                    flash(f"Welcome Admin {user.username}!", "success")
+                    flash(f"Welcome back, Admin {user.username}! 👋", "success")
                     return redirect(url_for('admin_dashboard'))
                 elif user_role.role_id == 2:
-                    flash(f"Welcome Teacher {user.username}!", "success")
+                    flash(f"Welcome back, {user.username}! Ready to teach today? 📚", "success")
                     return redirect(url_for('teacher_dashboard'))
                 elif user_role.role_id == 3:
-                    flash(f"Welcome Student {user.username}!", "success")
+                    flash(f"Welcome back, {user.username}! Let's learn something new! 🎓", "success")
                     return redirect(url_for('student_dashboard'))
             else:
-                flash("User role not assigned", "warning")
+                flash("⚠️ Your account exists but no role is assigned. Please contact support.", "warning")
         else:
-            flash("Invalid Email or Password", "danger")
+            # Provide helpful error message
+            if not user:
+                flash("❌ No account found with this email address.", "danger")
+            else:
+                flash("❌ Incorrect password. Please try again.", "danger")
 
     return render_template('login.html')
 
@@ -81,41 +104,69 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        password = request.form['password']
-        role_id = request.form['role_id']
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirmPassword', '')
+        role_id = request.form.get('role_id', '')
+
+        # Validation checks
+        if not all([name, email, password, confirm_password, role_id]):
+            flash("All fields are required", "danger")
+            return redirect(url_for('register'))
+
+        if len(name) < 2 or len(name) > 50:
+            flash("Name must be between 2 and 50 characters", "danger")
+            return redirect(url_for('register'))
+
+        if password != confirm_password:
+            flash("Passwords do not match", "danger")
+            return redirect(url_for('register'))
+
+        if len(password) < 8:
+            flash("Password must be at least 8 characters long", "danger")
+            return redirect(url_for('register'))
 
         # Check if email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            flash("Email already exists!", "danger")
+            flash("📧 This email address is already registered. Please login or use a different email.", "danger")
             return redirect(url_for('register'))
 
-        # Hash password
-        hashed_password = generate_password_hash(password)
+        try:
+            # Hash password
+            hashed_password = generate_password_hash(password)
 
-        # Create new user
-        new_user = User(
-            username=name,
-            email=email,
-            password=hashed_password
-        )
+            # Create new user
+            new_user = User(
+                username=name,
+                email=email,
+                password=hashed_password
+            )
 
-        db.session.add(new_user)
-        db.session.commit()
+            db.session.add(new_user)
+            db.session.commit()
 
-        # Assign Role
-        user_role = UserRole(
-            user_id=new_user.user_id,
-            role_id=role_id
-        )
+            # Assign Role
+            user_role = UserRole(
+                user_id=new_user.user_id,
+                role_id=role_id
+            )
 
-        db.session.add(user_role)
-        db.session.commit()
+            db.session.add(user_role)
+            db.session.commit()
 
-        flash("Registration Successful! Please login.", "success")
-        return redirect(url_for('login'))
+            # Get role name for personalized message
+            role = Role.query.get(role_id)
+            role_name = role.name if role else "User"
+
+            flash(f"✅ Registration successful! Welcome {name}! You're registered as a {role_name}. Please login to continue.", "success")
+            return redirect(url_for('login'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f"An error occurred during registration. Please try again. (Error: {str(e)})", "danger")
+            return redirect(url_for('register'))
 
     return render_template('register.html')
 
