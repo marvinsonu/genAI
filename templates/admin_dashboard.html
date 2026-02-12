@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .navbar h1 {
+            font-size: 24px;
+        }
+        
+        .nav-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .logout-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #ff5252;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .welcome-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .welcome-box h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .users-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .table-header {
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .role-admin {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .role-teacher {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .role-student {
+            background: #ffa502;
+            color: white;
+        }
+        
+        .action-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            transition: opacity 0.3s;
+        }
+        
+        .edit-btn {
+            background: #667eea;
+            color: white;
+        }
+        
+        .delete-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.8;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .flash-msg {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .flash-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>🔐 Admin Dashboard</h1>
+        <div class="nav-right">
+            <span>Welcome, {{ session.get('username') }}!</span>
+            <a href="{{ url_for('logout') }}">
+                <button class="logout-btn">Logout</button>
+            </a>
+        </div>
+    </div>
+    
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-msg flash-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="welcome-box">
+            <h2>Administrator Control Panel</h2>
+            <p>Manage users, roles, and system settings from here.</p>
+        </div>
+        
+        <div class="stats">
+            {% set total_users = users|length %}
+            {% set admin_count = users|selectattr('UserRole.role_id', 'equalto', 1)|list|length %}
+            {% set teacher_count = users|selectattr('UserRole.role_id', 'equalto', 2)|list|length %}
+            {% set student_count = users|selectattr('UserRole.role_id', 'equalto', 3)|list|length %}
+            
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <div class="number">{{ total_users }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Admins</h3>
+                <div class="number">{{ admin_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Teachers</h3>
+                <div class="number">{{ teacher_count }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Students</h3>
+                <div class="number">{{ student_count }}</div>
+            </div>
+        </div>
+        
+        <div class="users-table">
+            <div class="table-header">
+                <h3>All Users</h3>
+            </div>
+            
+            {% if users %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user, user_role, role in users %}
+                            <tr>
+                                <td>{{ user.user_id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% if role.role_id == 1 %}
+                                        <span class="role-badge role-admin">{{ role.name }}</span>
+                                    {% elif role.role_id == 2 %}
+                                        <span class="role-badge role-teacher">{{ role.name }}</span>
+                                    {% else %}
+                                        <span class="role-badge role-student">{{ role.name }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="action-btn edit-btn">Edit</button>
+                                    <button class="action-btn delete-btn">Delete</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">
+                    <p>No users found in the system.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -103,9 +103,19 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div style="padding: 10px; margin-bottom: 15px; border-radius: 4px; {% if category == 'danger' %}background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;{% elif category == 'success' %}background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;{% else %}background-color: #e7d3f5; color: #664466; border: 1px solid #d4b5e3;{% endif %}">
-                        {{ message }}
-                    </div>
+                    {% if category == 'danger' %}
+                        <div style="padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;">
+                            {{ message }}
+                        </div>
+                    {% elif category == 'success' %}
+                        <div style="padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+                            {{ message }}
+                        </div>
+                    {% else %}
+                        <div style="padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: #e7d3f5; color: #664466; border: 1px solid #d4b5e3;">
+                            {{ message }}
+                        </div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}
