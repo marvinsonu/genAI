@@ -263,6 +263,13 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
+
+        .quick-link-link {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
         .empty-state {
             text-align: center;
@@ -417,7 +424,7 @@
                 <div class="section-title">🔗 Quick Links</div>
                 <div class="card">
                     <div class="quick-links">
-                        <button class="quick-link-btn">📝 Submit Assignment</button>
+                        <a class="quick-link-btn quick-link-link" href="{{ url_for('student_quiz_assessment') }}">Take Quiz Assessment</a>
                         <button class="quick-link-btn">📖 View Resources</button>
                         <button class="quick-link-btn">💬 Message Teacher</button>
                         <button class="quick-link-btn">📅 Class Schedule</button>
@@ -428,3 +435,4 @@
     </div>
 </body>
 </html>
+

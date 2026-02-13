@@ -3,7 +3,7 @@ from functools import wraps
 from datetime import timedelta
 from controller.config import config
 from controller.database import db
-from controller.model import User, Role, UserRole
+from controller.model import User, Role, UserRole, QuizQuestion
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -198,15 +198,60 @@ def admin_dashboard():
 
 
 # ================= TEACHER DASHBOARD =================
-@app.route('/teacher-dashboard')
+@app.route('/teacher-dashboard', methods=['GET', 'POST'])
 @login_required
 def teacher_dashboard():
     if session.get('role_id') != 2:
         flash("Unauthorized access", "danger")
         return redirect(url_for('login'))
-    
+
     username = session.get('username')
-    return render_template('teacher_dashboard.html', username=username)
+    user_id = session.get('user_id')
+
+    # Handle creation of simple quiz questions by teacher
+    if request.method == 'POST':
+        q_text = request.form.get('question', '').strip()
+        a = request.form.get('option_a', '').strip()
+        b = request.form.get('option_b', '').strip()
+        c = request.form.get('option_c', '').strip()
+        d = request.form.get('option_d', '').strip()
+        correct = request.form.get('correct_answer', '').strip()
+
+        if not all([q_text, a, b, c, d, correct]):
+            flash('All fields are required to create a question.', 'danger')
+            return redirect(url_for('teacher_dashboard'))
+
+        try:
+            # Map selected correct option key to actual option text
+            mapping = {
+                'option_a': a,
+                'option_b': b,
+                'option_c': c,
+                'option_d': d,
+            }
+            correct_text = mapping.get(correct, '')
+
+            new_q = QuizQuestion(
+                teacher_id=user_id,
+                question_text=q_text,
+                option_a=a,
+                option_b=b,
+                option_c=c,
+                option_d=d,
+                correct_answer=correct_text
+            )
+            db.session.add(new_q)
+            db.session.commit()
+            flash('Question created successfully.', 'success')
+            return redirect(url_for('teacher_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating question: {e}', 'danger')
+            return redirect(url_for('teacher_dashboard'))
+
+    # GET: list questions created by this teacher
+    questions = QuizQuestion.query.filter_by(teacher_id=user_id).order_by(QuizQuestion.created_at.desc()).all()
+    return render_template('teacher_dashboard.html', username=username, questions=questions)
 
 
 # ================= STUDENT DASHBOARD =================
@@ -219,6 +264,68 @@ def student_dashboard():
     
     username = session.get('username')
     return render_template('student_dashboard.html', username=username)
+
+
+# ================= STUDENT QUIZ ASSESSMENT =================
+@app.route('/student-quiz-assessment', methods=['GET', 'POST'])
+@login_required
+def student_quiz_assessment():
+    if session.get('role_id') != 3:
+        flash("Unauthorized access", "danger")
+        return redirect(url_for('login'))
+
+    username = session.get('username')
+    # Load questions from DB; fall back to defaults if none exist
+    questions_db = QuizQuestion.query.all()
+    if questions_db:
+        questions = [q.to_dict() for q in questions_db]
+    else:
+        questions = [
+            {
+                "id": "q1",
+                "question": "What is 12 x 8?",
+                "options": ["96", "88", "108", "86"],
+                "answer": "96",
+            },
+            {
+                "id": "q2",
+                "question": "Which gas do plants absorb from the atmosphere?",
+                "options": ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
+                "answer": "Carbon Dioxide",
+            },
+            {
+                "id": "q3",
+                "question": "Who wrote Hamlet?",
+                "options": ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
+                "answer": "William Shakespeare",
+            },
+        ]
+
+    score = None
+    total = len(questions)
+    percentage = None
+    selected_answers = {}
+
+    if request.method == 'POST':
+        score = 0
+        for q in questions:
+            student_answer = request.form.get(q["id"], "")
+            selected_answers[q["id"]] = student_answer
+            if student_answer == q["answer"]:
+                score += 1
+
+        percentage = round((score / total) * 100, 2) if total else 0
+        flash(f"Quiz submitted. You scored {score}/{total} ({percentage}%).", "success")
+
+    return render_template(
+        'student_quiz_assessment.html',
+        username=username,
+        questions=questions,
+        score=score,
+        total=total,
+        percentage=percentage,
+        selected_answers=selected_answers
+    )
 
  
 if __name__ == '__main__':
